@@ -109,17 +109,27 @@ build-backend = "setuptools.build_meta"
 name = "{project_name}"
 version = "0.1.0"
 dependencies = [
-    "faststack",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "sqlmodel>=0.0.22",
     "jinja2>=3.1.4",
     "alembic>=1.14.0",
     "python-dotenv>=1.0.1",
+    "passlib[bcrypt]>=1.7.4",
+    "itsdangerous>=2.2.0",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.20",
+    "pydantic-settings>=2.0.0",
+    "pydantic[email]>=2.0.0",
+    "rich>=13.0.0",
+    "typer>=0.9.0",
 ]
 
 [project.scripts]
 {project_name} = "faststack.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["apps*"]
 
 [tool.ruff]
 line-length = 100
@@ -169,6 +179,11 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Add faststack source if running from source
+faststack_src = Path(__file__).parent.parent / "faststack"
+if faststack_src.exists():
+    sys.path.insert(0, str(faststack_src.parent))
+
 from faststack.cli import app
 
 if __name__ == "__main__":
@@ -180,6 +195,14 @@ if __name__ == "__main__":
     main_content = '''"""
 Main application entry point.
 """
+import sys
+from pathlib import Path
+
+# Add faststack source if running from source
+faststack_src = Path(__file__).parent.parent / "faststack"
+if faststack_src.exists():
+    sys.path.insert(0, str(faststack_src.parent))
+
 from faststack import create_app
 
 app = create_app()
