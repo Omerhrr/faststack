@@ -2,9 +2,11 @@
 FastStack Session Management
 
 Provides session handling utilities using itsdangerous for secure session signing.
+Includes protection against session fixation attacks.
 """
 
 import json
+import secrets
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -23,6 +25,7 @@ class SessionManager:
     - Secure session signing
     - Session creation and validation
     - Flash message support
+    - Session regeneration (prevents session fixation)
     """
 
     def __init__(
@@ -130,6 +133,50 @@ def clear_session(request: Request) -> None:
     request.session.clear()
 
 
+def regenerate_session(request: Request) -> str:
+    """
+    Regenerate the session ID to prevent session fixation attacks.
+    
+    This creates a new session while preserving the existing data.
+    Should be called after login to prevent session fixation.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        New session identifier
+    """
+    # Preserve existing session data
+    old_data = dict(request.session)
+    
+    # Clear the session (this effectively creates a new session)
+    request.session.clear()
+    
+    # Generate a new session ID
+    new_session_id = secrets.token_urlsafe(32)
+    
+    # Restore data with new session ID
+    old_data["_session_id"] = new_session_id
+    old_data["_regenerated_at"] = datetime.utcnow().isoformat()
+    
+    request.session.update(old_data)
+    
+    return new_session_id
+
+
+def get_session_id(request: Request) -> str | None:
+    """
+    Get the current session ID.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        Session ID or None
+    """
+    return request.session.get("_session_id")
+
+
 def flash(
     request: Request,
     message: str,
@@ -162,29 +209,76 @@ def get_flashes(request: Request) -> list[dict[str, str]]:
     return flashes
 
 
-def login_user(request: Request, user_id: int, **extra: Any) -> None:
+def login_user(
+    request: Request,
+    user_id: int,
+    regenerate: bool = True,
+    **extra: Any
+) -> None:
     """
     Log in a user by setting session data.
+    
+    Automatically regenerates session ID to prevent session fixation.
 
     Args:
         request: Starlette request object
         user_id: User ID to store in session
+        regenerate: Whether to regenerate session ID (default: True)
         **extra: Additional data to store in session
     """
+    # Regenerate session to prevent session fixation
+    if regenerate and settings.SESSION_REGENERATE_ON_LOGIN:
+        regenerate_session(request)
+    
     request.session["user_id"] = user_id
     request.session["authenticated"] = True
     request.session["login_time"] = datetime.utcnow().isoformat()
+    request.session["auth_method"] = "password"  # Track authentication method
     request.session.update(extra)
 
 
 def logout_user(request: Request) -> None:
     """
     Log out the current user by clearing session.
+    
+    Completely clears the session and generates a new session ID.
 
     Args:
         request: Starlette request object
     """
-    clear_session(request)
+    # Clear all session data
+    request.session.clear()
+    
+    # Generate a new session ID for the anonymous user
+    request.session["_session_id"] = secrets.token_urlsafe(32)
+
+
+def is_authenticated(request: Request) -> bool:
+    """
+    Check if the current request has an authenticated user.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        True if user is authenticated
+    """
+    return request.session.get("authenticated", False) and request.session.get("user_id") is not None
+
+
+def get_current_user_id(request: Request) -> int | None:
+    """
+    Get the current authenticated user's ID.
+
+    Args:
+        request: Starlette request object
+
+    Returns:
+        User ID or None if not authenticated
+    """
+    if not is_authenticated(request):
+        return None
+    return request.session.get("user_id")
 
 
 # Global session manager

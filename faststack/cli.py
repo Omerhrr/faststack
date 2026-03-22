@@ -5,6 +5,7 @@ Provides command-line interface for project management, similar to Django's mana
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -15,6 +16,89 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
+
+
+# Validation patterns
+PYTHON_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+RESERVED_NAMES = {
+    'faststack', 'fastapi', 'uvicorn', 'sqlmodel', 'pydantic', 'alembic',
+    'test', 'tests', 'docs', 'site-packages', 'venv', 'env',
+    'admin', 'auth', 'user', 'users', 'api', 'static', 'media', 'templates',
+    'migrations', 'core', 'config', 'settings', 'main', 'app', 'manage',
+    'con', 'prn', 'aux', 'nul',  # Windows reserved names
+}
+
+
+def validate_project_name(name: str) -> tuple[bool, str]:
+    """
+    Validate a project name.
+    
+    Args:
+        name: Project name to validate
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not name:
+        return False, "Project name cannot be empty"
+    
+    if len(name) > 100:
+        return False, "Project name cannot be longer than 100 characters"
+    
+    if not PYTHON_IDENTIFIER_PATTERN.match(name):
+        return False, (
+            "Project name must be a valid Python identifier: "
+            "start with a letter or underscore, followed by letters, digits, or underscores"
+        )
+    
+    if name.startswith('_'):
+        return False, "Project name cannot start with an underscore"
+    
+    if name.lower() in RESERVED_NAMES:
+        return False, f"Project name '{name}' is reserved. Choose a different name."
+    
+    # Check for shell injection attempts
+    dangerous_chars = [';', '|', '&', '$', '`', '(', ')', '{', '}', '<', '>', '\n', '\r']
+    if any(char in name for char in dangerous_chars):
+        return False, "Project name contains invalid characters"
+    
+    return True, ""
+
+
+def validate_app_name(name: str) -> tuple[bool, str]:
+    """
+    Validate an app name.
+    
+    Args:
+        name: App name to validate
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not name:
+        return False, "App name cannot be empty"
+    
+    if len(name) > 50:
+        return False, "App name cannot be longer than 50 characters"
+    
+    if not PYTHON_IDENTIFIER_PATTERN.match(name):
+        return False, (
+            "App name must be a valid Python identifier: "
+            "start with a letter or underscore, followed by letters, digits, or underscores"
+        )
+    
+    if name.startswith('_'):
+        return False, "App name cannot start with an underscore"
+    
+    if name.lower() in RESERVED_NAMES:
+        return False, f"App name '{name}' is reserved. Choose a different name."
+    
+    # Check for shell injection attempts
+    dangerous_chars = [';', '|', '&', '$', '`', '(', ')', '{', '}', '<', '>', '\n', '\r']
+    if any(char in name for char in dangerous_chars):
+        return False, "App name contains invalid characters"
+    
+    return True, ""
 
 app = typer.Typer(
     name="faststack",
@@ -68,6 +152,12 @@ def startproject(
         faststack startproject myproject --dir /path/to/projects
     """
     print_banner()
+    
+    # Validate project name
+    is_valid, error = validate_project_name(project_name)
+    if not is_valid:
+        console.print(f"[red]Error: {error}[/red]")
+        raise typer.Exit(1)
 
     # Determine target directory
     if directory:
@@ -494,6 +584,12 @@ def startapp(
     Example:
         faststack startapp blog
     """
+    # Validate app name
+    is_valid, error = validate_app_name(app_name)
+    if not is_valid:
+        console.print(f"[red]Error: {error}[/red]")
+        raise typer.Exit(1)
+    
     apps_dir = Path.cwd() / "apps"
 
     if not apps_dir.exists():

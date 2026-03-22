@@ -12,6 +12,7 @@ import asyncio
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 from typing import Optional
+import time
 
 from sqlalchemy.ext.asyncio import AsyncEngine as SQLAlchemyAsyncEngine, create_async_engine
 from sqlmodel import Session, SQLModel, create_engine
@@ -42,6 +43,8 @@ def create_database_engine(async_mode: bool = False):
             echo=settings.DATABASE_ECHO,
             pool_size=settings.DATABASE_POOL_SIZE,
             max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+            pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
             connect_args=connect_args,
         )
 
@@ -50,6 +53,8 @@ def create_database_engine(async_mode: bool = False):
         echo=settings.DATABASE_ECHO,
         pool_size=settings.DATABASE_POOL_SIZE,
         max_overflow=settings.DATABASE_MAX_OVERFLOW,
+        pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+        pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
         connect_args=connect_args,
     )
 
@@ -76,6 +81,8 @@ def get_engine():
             echo=settings.DATABASE_ECHO,
             pool_size=settings.DATABASE_POOL_SIZE,
             max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+            pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
             connect_args=connect_args,
         )
     return _engine
@@ -102,6 +109,8 @@ def get_async_engine() -> SQLAlchemyAsyncEngine:
             echo=settings.DATABASE_ECHO,
             pool_size=settings.DATABASE_POOL_SIZE,
             max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+            pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
             connect_args=connect_args,
         )
     return _async_engine
@@ -247,3 +256,76 @@ async def drop_async_db() -> None:
     async_engine = get_async_engine()
     async with async_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
+
+
+def db_transaction(func):
+    """
+    Decorator to wrap a function in a database transaction.
+    
+    Automatically commits on success, rolls back on failure.
+    
+    Example:
+        @db_transaction
+        def create_user(email: str):
+            with get_session() as session:
+                user = User(email=email)
+                session.add(user)
+                return user
+    """
+    def wrapper(*args, **kwargs):
+        with session_scope() as session:
+            return func(*args, session=session, **kwargs)
+    return wrapper
+
+
+def async_db_transaction(func):
+    """
+    Decorator to wrap an async function in a database transaction.
+    
+    Example:
+        @async_db_transaction
+        async def create_user(email: str):
+            async with async_session_scope() as session:
+                user = User(email=email)
+                session.add(user)
+                return user
+    """
+    async def wrapper(*args, **kwargs):
+        async with async_session_scope() as session:
+            return await func(*args, session=session, **kwargs)
+    return wrapper
+
+
+def retry_on_deadlock(max_retries: int = 3, delay: float = 0.1):
+    """
+    Decorator to retry database operations on deadlock.
+    
+    Args:
+        max_retries: Maximum number of retry attempts
+        delay: Delay between retries in seconds
+    
+    Example:
+        @retry_on_deadlock(max_retries=3)
+        def update_user(user_id: int):
+            with get_session() as session:
+                user = session.get(User, user_id)
+                user.name = "New Name"
+                session.add(user)
+    """
+    from sqlalchemy.exc import OperationalError
+    
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except OperationalError as e:
+                    if "deadlock" in str(e).lower():
+                        last_exception = e
+                        time.sleep(delay * (attempt + 1))  # Exponential backoff
+                        continue
+                    raise
+            raise last_exception
+        return wrapper
+    return decorator

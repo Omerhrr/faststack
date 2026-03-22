@@ -2,9 +2,12 @@
 FastStack Admin Routes
 
 Provides routes for the admin panel including dashboard and CRUD operations.
+Includes security fixes for SQL injection and concurrent edit detection.
 """
 
+import re
 from typing import Any
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,8 +20,37 @@ from faststack.core.responses import is_htmx, HTMXResponse
 from faststack.core.session import flash, get_flashes
 from faststack.admin.registry import admin_registry, ModelAdmin
 from faststack.auth.models import User
+from faststack.middleware.csrf import csrf_token
 
 router = APIRouter(tags=["admin"])
+
+
+# Maximum search query length to prevent abuse
+MAX_SEARCH_LENGTH = 100
+# Characters to escape in search queries
+SEARCH_SPECIAL_CHARS = re.compile(r'[%_\\]')
+
+
+def escape_search_query(query: str) -> str:
+    """
+    Escape special characters in search query to prevent SQL injection.
+    
+    Args:
+        query: Raw search query
+    
+    Returns:
+        Escaped search query safe for LIKE operations
+    """
+    if not query:
+        return ""
+    
+    # Truncate to prevent abuse
+    query = query[:MAX_SEARCH_LENGTH]
+    
+    # Escape SQL LIKE special characters
+    query = SEARCH_SPECIAL_CHARS.sub(lambda m: '\\' + m.group(), query)
+    
+    return query
 
 
 def get_context(request: Request, **extra: Any) -> dict[str, Any]:
@@ -28,6 +60,7 @@ def get_context(request: Request, **extra: Any) -> dict[str, Any]:
         "settings": settings,
         "menu_items": admin_registry.get_menu_items(),
         "flashes": get_flashes(request),
+        "csrf_token": csrf_token(request),
     }
     context.update(extra)
     return context
@@ -73,12 +106,18 @@ async def model_list(
     # Build query
     query = select(model)
 
-    # Search
+    # Search with escaped query to prevent SQL injection
     if search and model_admin.search_fields:
+        # Escape the search query
+        safe_search = escape_search_query(search)
+        
         search_conditions = []
         for field in model_admin.search_fields:
             if hasattr(model, field):
-                search_conditions.append(col(getattr(model, field)).contains(search))
+                # Use safe LIKE pattern with parameterized query
+                # col().contains() generates safe parameterized SQL
+                search_conditions.append(col(getattr(model, field)).contains(safe_search))
+        
         if search_conditions:
             query = query.where(or_(*search_conditions))
 
@@ -97,7 +136,8 @@ async def model_list(
     count_query = select(func.count()).select_from(query.subquery())
     total = session.exec(count_query).one()
 
-    # Pagination
+    # Pagination with limit
+    page = min(page, 1000)  # Prevent excessive page numbers
     offset = (page - 1) * model_admin.list_per_page
     query = query.offset(offset).limit(model_admin.list_per_page)
 
@@ -116,7 +156,7 @@ async def model_list(
         page=page,
         total_pages=total_pages,
         total=total,
-        search=search,
+        search=search,  # Keep original search for display
     )
     return templates.TemplateResponse("admin/list.html", context)
 
@@ -192,6 +232,11 @@ async def model_create(
 
     # Create instance
     instance = model(**data)
+    
+    # Add version for optimistic locking
+    if settings.ADMIN_OPTIMISTIC_LOCKING and hasattr(instance, 'version'):
+        instance.version = 1
+    
     session.add(instance)
     session.commit()
     session.refresh(instance)
@@ -227,6 +272,9 @@ async def model_detail(
 
     templates = get_templates()
     columns = model_admin.get_columns()
+    
+    # Get current version for optimistic locking
+    current_version = getattr(instance, 'version', None) if settings.ADMIN_OPTIMISTIC_LOCKING else None
 
     context = get_context(
         request,
@@ -236,6 +284,7 @@ async def model_detail(
         instance=instance,
         columns=columns,
         is_create=False,
+        current_version=current_version,
     )
     return templates.TemplateResponse("admin/form.html", context)
 
@@ -248,7 +297,7 @@ async def model_update(
     user: AdminUser,
     session: DBSession,
 ):
-    """Handle update form submission."""
+    """Handle update form submission with optimistic locking."""
     model_admin = admin_registry.get_model(model_name)
     if not model_admin:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -261,6 +310,29 @@ async def model_update(
 
     # Get form data
     form_data = await request.form()
+    
+    # Optimistic locking check
+    if settings.ADMIN_OPTIMISTIC_LOCKING and hasattr(instance, 'version'):
+        submitted_version = form_data.get('_version')
+        current_version = instance.version
+        
+        if submitted_version:
+            try:
+                submitted_version = int(submitted_version)
+                if submitted_version != current_version:
+                    # Concurrent modification detected
+                    if is_htmx(request):
+                        return HTMLResponse(
+                            content='<div class="alert alert-error">This record was modified by another user. Please reload and try again.</div>',
+                            status_code=409,
+                        )
+                    flash(request, "This record was modified by another user. Please reload and try again.", "error")
+                    return RedirectResponse(
+                        url=f"/admin/{model_name}/{item_id}/",
+                        status_code=302,
+                    )
+            except (ValueError, TypeError):
+                pass
 
     # Update instance
     columns = model_admin.get_columns()
@@ -288,6 +360,10 @@ async def model_update(
     # Update timestamp if available
     if hasattr(instance, "touch"):
         instance.touch()
+    
+    # Increment version for optimistic locking
+    if settings.ADMIN_OPTIMISTIC_LOCKING and hasattr(instance, 'version'):
+        instance.version = (instance.version or 0) + 1
 
     session.add(instance)
     session.commit()
@@ -356,3 +432,57 @@ async def model_delete_api(
     session.commit()
 
     return {"success": True}
+
+
+# Bulk actions endpoint
+@router.post("/{model_name}/bulk/")
+async def model_bulk_action(
+    request: Request,
+    model_name: str,
+    user: AdminUser,
+    session: DBSession,
+    action: str = Form(...),
+    ids: str = Form(...),
+):
+    """
+    Handle bulk actions on multiple items.
+    
+    Args:
+        action: Action to perform (delete, etc.)
+        ids: Comma-separated list of item IDs
+    """
+    model_admin = admin_registry.get_model(model_name)
+    if not model_admin:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Parse and validate IDs
+    try:
+        item_ids = [int(id.strip()) for id in ids.split(",") if id.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid item IDs")
+    
+    # Limit bulk operations to prevent abuse
+    if len(item_ids) > 100:
+        raise HTTPException(status_code=400, detail="Too many items (max 100)")
+    
+    model = model_admin.model
+    
+    if action == "delete":
+        # Bulk delete with individual checks
+        deleted_count = 0
+        for item_id in item_ids:
+            instance = session.get(model, item_id)
+            if instance:
+                session.delete(instance)
+                deleted_count += 1
+        
+        session.commit()
+        flash(request, f"Deleted {deleted_count} items", "success")
+    
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+    
+    if is_htmx(request):
+        return HTMXResponse.redirect(f"/admin/{model_name}/")
+    
+    return RedirectResponse(url=f"/admin/{model_name}/", status_code=302)

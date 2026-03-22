@@ -10,11 +10,13 @@ Usage:
 """
 
 import os
+import secrets
+import warnings
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,14 +40,16 @@ class Settings(BaseSettings):
     # Application Settings
     APP_NAME: str = "FastStack App"
     APP_ENV: str = "development"
-    DEBUG: bool = True
-    SECRET_KEY: str = "change-this-secret-key-in-production"
+    DEBUG: bool = False  # Changed: Default to False for security
+    SECRET_KEY: str = ""  # Changed: Empty default, must be set
 
     # Database Configuration
     DATABASE_URL: str = "sqlite:///./faststack.db"
     DATABASE_ECHO: bool = False
     DATABASE_POOL_SIZE: int = 5
     DATABASE_MAX_OVERFLOW: int = 10
+    DATABASE_POOL_TIMEOUT: int = 30  # New: Connection pool timeout
+    DATABASE_POOL_PRE_PING: bool = True  # New: Check connection health
 
     # Server Configuration
     HOST: str = "127.0.0.1"
@@ -58,6 +62,7 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SECURE: bool = False
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = "lax"
+    SESSION_REGENERATE_ON_LOGIN: bool = True  # New: Prevent session fixation
 
     # CSRF Settings
     CSRF_ENABLED: bool = True
@@ -65,12 +70,15 @@ class Settings(BaseSettings):
     CSRF_HEADER_NAME: str = "X-CSRF-Token"
     CSRF_COOKIE_NAME: str = "csrf_token"
     CSRF_EXPIRY: int = 3600  # 1 hour
+    CSRF_BIND_TO_SESSION: bool = True  # New: Bind CSRF token to session
 
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 60
     RATE_LIMIT_REQUESTS_PER_HOUR: int = 1000
     RATE_LIMIT_BLOCK_DURATION: int = 300  # 5 minutes
+    RATE_LIMIT_REDIS_URL: str = ""  # New: Redis URL for distributed rate limiting
+    RATE_LIMIT_TRUSTED_PROXIES: list[str] = []  # New: Trusted proxy IPs for X-Forwarded-For
 
     # Security Headers
     SECURITY_HEADERS_ENABLED: bool = True
@@ -78,12 +86,13 @@ class Settings(BaseSettings):
     CSP_ENABLED: bool = True
 
     # JWT Settings
-    JWT_SECRET_KEY: str = ""
+    JWT_SECRET_KEY: str = ""  # Changed: Empty default, must be set
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     JWT_ISSUER: str = "faststack"
     JWT_AUDIENCE: str = "faststack-users"
+    JWT_BLACKLIST_ENABLED: bool = True  # New: Enable token blacklisting
 
     # CORS Settings (must be after JWT settings)
     CORS_ORIGINS: list[str] = ["http://localhost:8000", "http://localhost:3000"]
@@ -112,15 +121,25 @@ class Settings(BaseSettings):
     ]
     UPLOAD_IMAGE_MAX_WIDTH: int = 1920
     UPLOAD_IMAGE_MAX_HEIGHT: int = 1080
+    UPLOAD_VALIDATE_CONTENT: bool = True  # New: Validate file content (magic bytes)
+    UPLOAD_MAX_FILES_PER_USER: int = 100  # New: Max files per user
+    UPLOAD_STORAGE_QUOTA_MB: int = 100  # New: Storage quota per user in MB
 
     # Password Reset
     PASSWORD_RESET_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_TOKEN_NAME: str = "password_reset_token"
 
+    # Brute Force Protection (New)
+    BRUTE_FORCE_ENABLED: bool = True
+    BRUTE_FORCE_MAX_ATTEMPTS: int = 5
+    BRUTE_FORCE_LOCKOUT_DURATION: int = 900  # 15 minutes
+    BRUTE_FORCE_PROGRESSIVE_DELAY: bool = True  # Increase delay after each failed attempt
+
     # Admin Settings
     ADMIN_MOUNT_PATH: str = "/admin"
     ADMIN_SITE_HEADER: str = "FastStack Admin"
     ADMIN_SITE_TITLE: str = "FastStack Administration"
+    ADMIN_OPTIMISTIC_LOCKING: bool = True  # New: Enable optimistic locking
 
     # Template Settings
     TEMPLATES_DIR: str = "templates"
@@ -140,6 +159,7 @@ class Settings(BaseSettings):
     PASSWORD_REQUIRE_LOWERCASE: bool = True
     PASSWORD_REQUIRE_DIGITS: bool = True
     PASSWORD_REQUIRE_SPECIAL: bool = False
+    PASSWORD_HISTORY_COUNT: int = 5  # New: Prevent reusing last N passwords
 
     # Pagination
     PAGE_SIZE: int = 20
@@ -160,12 +180,76 @@ class Settings(BaseSettings):
         """Check if running in testing mode."""
         return self.APP_ENV == "testing"
 
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> "Settings":
+        """Validate and warn about insecure settings."""
+        # Generate SECRET_KEY if not set
+        if not self.SECRET_KEY:
+            if self.is_production:
+                raise ValueError(
+                    "SECRET_KEY must be set in production! "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+            # Generate a random key for development
+            self.SECRET_KEY = secrets.token_urlsafe(32)
+            warnings.warn(
+                "SECRET_KEY not set. Using a randomly generated key. "
+                "Set SECRET_KEY environment variable for production.",
+                UserWarning,
+            )
+
+        # Generate JWT_SECRET_KEY if not set
+        if not self.JWT_SECRET_KEY:
+            if self.is_production:
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set in production! "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+            self.JWT_SECRET_KEY = secrets.token_urlsafe(32)
+            warnings.warn(
+                "JWT_SECRET_KEY not set. Using a randomly generated key. "
+                "Set JWT_SECRET_KEY environment variable for production.",
+                UserWarning,
+            )
+
+        # Warn about DEBUG=True in production
+        if self.DEBUG and self.is_production:
+            warnings.warn(
+                "DEBUG=True is enabled in production! This is a security risk.",
+                UserWarning,
+            )
+
+        # Warn about insecure session cookie in production
+        if not self.SESSION_COOKIE_SECURE and self.is_production:
+            warnings.warn(
+                "SESSION_COOKIE_SECURE=False in production. "
+                "Set SESSION_COOKIE_SECURE=True for HTTPS.",
+                UserWarning,
+            )
+
+        # Validate CORS settings
+        if self.CORS_ALLOW_CREDENTIALS and "*" in self.CORS_ORIGINS:
+            raise ValueError(
+                "CORS_ALLOW_CREDENTIALS=True cannot be used with CORS_ORIGINS=['*']. "
+                "Specify explicit origins instead."
+            )
+
+        return self
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: Any) -> list[str]:
         """Parse CORS origins from comma-separated string if needed."""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
+    @field_validator("RATE_LIMIT_TRUSTED_PROXIES", mode="before")
+    @classmethod
+    def parse_trusted_proxies(cls, v: Any) -> list[str]:
+        """Parse trusted proxies from comma-separated string if needed."""
+        if isinstance(v, str):
+            return [ip.strip() for ip in v.split(",") if ip.strip()]
         return v
 
     @property

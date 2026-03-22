@@ -1,9 +1,10 @@
 """
 FastStack Authentication Routes
 
-Provides login, logout, and registration routes.
+Provides login, logout, and registration routes with brute force protection.
 """
 
+import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
@@ -18,22 +19,51 @@ from faststack.auth.utils import (
     get_user_by_email,
     hash_password,
     validate_password_strength,
+    is_account_locked,
+    get_failed_attempts,
+    get_lockout_remaining,
+    get_progressive_delay,
 )
 from faststack.config import settings
 from faststack.core.dependencies import CurrentUser, DBSession, get_current_user
-from faststack.core.session import flash, login_user, logout_user
+from faststack.core.session import flash, login_user, logout_user, is_authenticated
 from faststack.core.responses import is_htmx, HTMXResponse
+from faststack.middleware.csrf import csrf_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Get client IP address, respecting trusted proxies."""
+    # Check X-Forwarded-For if trusted proxies are configured
+    if settings.RATE_LIMIT_TRUSTED_PROXIES:
+        client_host = request.client.host if request.client else ""
+        
+        # Check if request comes from trusted proxy
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+        if forwarded_for and client_host in settings.RATE_LIMIT_TRUSTED_PROXIES:
+            # Get the first IP in the chain (original client)
+            return forwarded_for.split(",")[0].strip()
+    
+    # Fall back to direct client IP
+    return request.client.host if request.client else "unknown"
 
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Render login page."""
     templates = get_templates()
+    
+    # Generate CSRF token
+    token = csrf_token(request)
+    
     return templates.TemplateResponse(
         "auth/login.html",
-        {"request": request, "title": "Login"},
+        {
+            "request": request,
+            "title": "Login",
+            "csrf_token": token,
+        },
     )
 
 
@@ -43,18 +73,56 @@ async def login(
     session: DBSession,
     email: str = Form(...),
     password: str = Form(...),
+    csrf_token_value: str = Form(None, alias="csrf_token"),
 ):
     """
     Handle login form submission.
 
     Supports both regular form submission and HTMX requests.
+    Includes brute force protection.
     """
+    client_ip = get_client_ip(request)
+    
+    # Check if account is locked (by email or IP)
+    if is_account_locked(email):
+        remaining = get_lockout_remaining(email)
+        if is_htmx(request):
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">Account temporarily locked. Try again in {remaining} seconds.</div>',
+                status_code=429,
+            )
+        flash(request, f"Account temporarily locked. Try again in {remaining} seconds.", "error")
+        return RedirectResponse(url="/auth/login", status_code=302)
+    
+    # Check IP-based lockout
+    if is_account_locked(client_ip):
+        remaining = get_lockout_remaining(client_ip)
+        if is_htmx(request):
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">Too many failed attempts from your IP. Try again in {remaining} seconds.</div>',
+                status_code=429,
+            )
+        flash(request, f"Too many failed attempts. Try again in {remaining} seconds.", "error")
+        return RedirectResponse(url="/auth/login", status_code=302)
+    
     user = authenticate_user(session, email, password)
 
     if not user:
+        # Add progressive delay if enabled
+        if settings.BRUTE_FORCE_PROGRESSIVE_DELAY:
+            delay = get_progressive_delay(email)
+            if delay > 0:
+                time.sleep(delay)
+        
         if is_htmx(request):
+            attempts_left = settings.BRUTE_FORCE_MAX_ATTEMPTS - get_failed_attempts(email)
+            msg = "Invalid email or password"
+            if attempts_left > 0:
+                msg += f" ({attempts_left} attempts remaining)"
+            else:
+                msg = "Account locked due to too many failed attempts"
             return HTMLResponse(
-                content='<div class="alert alert-error">Invalid email or password</div>',
+                content=f'<div class="alert alert-error">{msg}</div>',
                 status_code=401,
             )
         flash(request, "Invalid email or password", "error")
@@ -69,7 +137,7 @@ async def login(
         flash(request, "Account is disabled", "error")
         return RedirectResponse(url="/auth/login", status_code=302)
 
-    # Log user in
+    # Log user in (with session regeneration)
     login_user(request, user.id, email=user.email)
 
     if is_htmx(request):
@@ -83,9 +151,17 @@ async def login(
 async def register_page(request: Request):
     """Render registration page."""
     templates = get_templates()
+    
+    # Generate CSRF token
+    token = csrf_token(request)
+    
     return templates.TemplateResponse(
         "auth/register.html",
-        {"request": request, "title": "Register"},
+        {
+            "request": request,
+            "title": "Register",
+            "csrf_token": token,
+        },
     )
 
 
@@ -98,6 +174,7 @@ async def register(
     password_confirm: str = Form(...),
     first_name: str = Form(None),
     last_name: str = Form(None),
+    csrf_token_value: str = Form(None, alias="csrf_token"),
 ):
     """
     Handle registration form submission.
@@ -144,7 +221,7 @@ async def register(
         last_name=last_name,
     )
 
-    # Log user in
+    # Log user in (with session regeneration)
     login_user(request, user.id, email=user.email)
 
     if is_htmx(request):
@@ -166,9 +243,18 @@ async def logout(request: Request):
 async def profile_page(request: Request, user: CurrentUser):
     """Render profile page."""
     templates = get_templates()
+    
+    # Generate CSRF token
+    token = csrf_token(request)
+    
     return templates.TemplateResponse(
         "auth/profile.html",
-        {"request": request, "title": "Profile", "user": user},
+        {
+            "request": request,
+            "title": "Profile",
+            "user": user,
+            "csrf_token": token,
+        },
     )
 
 
@@ -179,6 +265,7 @@ async def update_profile(
     user: CurrentUser,
     first_name: str = Form(None),
     last_name: str = Form(None),
+    csrf_token_value: str = Form(None, alias="csrf_token"),
 ):
     """Update user profile."""
     user.first_name = first_name
@@ -203,6 +290,7 @@ async def change_password(
     current_password: str = Form(...),
     new_password: str = Form(...),
     new_password_confirm: str = Form(...),
+    csrf_token_value: str = Form(None, alias="csrf_token"),
 ):
     """Change user password."""
     from faststack.auth.utils import verify_password, hash_password
@@ -260,6 +348,13 @@ async def api_login(
     credentials: UserLogin,
 ):
     """API login endpoint that returns user data."""
+    # Check brute force protection
+    if is_account_locked(credentials.email):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Account temporarily locked",
+        )
+    
     user = authenticate_user(session, credentials.email, credentials.password)
 
     if not user:

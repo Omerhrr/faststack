@@ -3,6 +3,12 @@ FastStack ORM Base Models
 
 Provides base model classes with common fields and mixins
 for SQLModel-based database models.
+
+Features:
+- Auto-incrementing primary key
+- Timestamp fields
+- Version field for optimistic locking
+- Soft delete support
 """
 
 from datetime import datetime
@@ -10,6 +16,8 @@ from typing import Any, ClassVar
 
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
+
+from faststack.config import settings
 
 
 class TimestampMixin:
@@ -33,6 +41,7 @@ class BaseModel(SQLModel):
 
     Provides:
     - Auto-incrementing primary key (id)
+    - Version field for optimistic locking (optional)
     - Table name convention based on class name
     - Common methods for model manipulation
 
@@ -43,9 +52,15 @@ class BaseModel(SQLModel):
     """
 
     id: int | None = Field(default=None, primary_key=True)
+    
+    # Version field for optimistic locking (only used if ADMIN_OPTIMISTIC_LOCKING is enabled)
+    version: int = Field(default=1, sa_column_kwargs={"server_default": "1"})
 
     # Class variable to control table name generation
     _table_name: ClassVar[str | None] = None
+    
+    # Control whether version field should be included
+    _enable_versioning: ClassVar[bool] = True
 
     @classmethod
     def get_table_name(cls) -> str:
@@ -109,6 +124,34 @@ class BaseModel(SQLModel):
             Dictionary representation of the model
         """
         return self.model_dump()
+    
+    def increment_version(self) -> None:
+        """
+        Increment the version for optimistic locking.
+        Called automatically when saving with optimistic locking enabled.
+        """
+        self.version = (self.version or 0) + 1
+    
+    def check_version(self, expected_version: int) -> bool:
+        """
+        Check if the current version matches expected version.
+        
+        Args:
+            expected_version: Expected version number
+        
+        Returns:
+            True if versions match
+        """
+        return self.version == expected_version
+    
+    def get_version_dict(self) -> dict[str, Any]:
+        """
+        Get a dictionary with version info for form rendering.
+        
+        Returns:
+            Dictionary with version field
+        """
+        return {"_version": self.version} if settings.ADMIN_OPTIMISTIC_LOCKING else {}
 
     class Config:
         from_attributes = True
