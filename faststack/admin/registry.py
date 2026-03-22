@@ -5,7 +5,7 @@ Provides model registration and introspection for the admin panel.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, type
+from typing import Any, Callable
 
 from sqlmodel import SQLModel
 from pydantic import BaseModel

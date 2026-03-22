@@ -281,7 +281,7 @@ async def example_page(request: Request):
 Example app admin configuration.
 """
 from faststack.admin import register_model
-from faststack.apps.example.models import Item
+from apps.example.models import Item
 
 
 # Register the Item model with admin
@@ -559,7 +559,7 @@ class {app_name.title()}Read(BaseModel):
 {app_name.title()} app services.
 """
 from sqlmodel import Session, select
-from faststack.apps.{app_name}.models import {app_name.title()}
+from apps.{app_name}.models import {app_name.title()}
 
 
 class {app_name.title()}Service:
@@ -582,7 +582,7 @@ class {app_name.title()}Service:
 {app_name.title()} app admin configuration.
 """
 from faststack.admin import register_model
-from faststack.apps.{app_name}.models import {app_name.title()}
+from apps.{app_name}.models import {app_name.title()}
 
 
 # Register model with admin

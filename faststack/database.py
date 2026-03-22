@@ -13,13 +13,14 @@ from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 from typing import Optional
 
+from sqlalchemy.ext.asyncio import AsyncEngine as SQLAlchemyAsyncEngine, create_async_engine
 from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.ext.asyncio.session import AsyncSession, AsyncEngine
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from faststack.config import settings
 
 
-def create_database_engine(async_mode: bool = False) -> AsyncEngine | object:
+def create_database_engine(async_mode: bool = False):
     """
     Create a database engine based on settings.
 
@@ -36,14 +37,12 @@ def create_database_engine(async_mode: bool = False) -> AsyncEngine | object:
         connect_args["check_same_thread"] = False
 
     if async_mode:
-        return AsyncEngine(
-            create_engine(
-                settings.get_database_url(async_driver=True),
-                echo=settings.DATABASE_ECHO,
-                pool_size=settings.DATABASE_POOL_SIZE,
-                max_overflow=settings.DATABASE_MAX_OVERFLOW,
-                connect_args=connect_args,
-            )
+        return create_async_engine(
+            settings.get_database_url(async_driver=True),
+            echo=settings.DATABASE_ECHO,
+            pool_size=settings.DATABASE_POOL_SIZE,
+            max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            connect_args=connect_args,
         )
 
     return create_engine(
@@ -56,21 +55,56 @@ def create_database_engine(async_mode: bool = False) -> AsyncEngine | object:
 
 
 # Global engine instances
-engine = create_database_engine(async_mode=False)
-async_engine: Optional[AsyncEngine] = None
+_engine = None
+_async_engine: Optional[SQLAlchemyAsyncEngine] = None
 
 
-def get_async_engine() -> AsyncEngine:
+def get_engine():
+    """
+    Get or create the sync database engine.
+
+    Returns:
+        Engine: Sync database engine
+    """
+    global _engine
+    if _engine is None:
+        connect_args = {}
+        if settings.DATABASE_URL.startswith("sqlite"):
+            connect_args["check_same_thread"] = False
+        _engine = create_engine(
+            settings.DATABASE_URL,
+            echo=settings.DATABASE_ECHO,
+            pool_size=settings.DATABASE_POOL_SIZE,
+            max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            connect_args=connect_args,
+        )
+    return _engine
+
+
+# Alias for backwards compatibility
+engine = get_engine
+
+
+def get_async_engine() -> SQLAlchemyAsyncEngine:
     """
     Get or create the async database engine.
 
     Returns:
-        AsyncEngine: Async database engine
+        SQLAlchemyAsyncEngine: Async database engine
     """
-    global async_engine
-    if async_engine is None:
-        async_engine = create_database_engine(async_mode=True)
-    return async_engine
+    global _async_engine
+    if _async_engine is None:
+        connect_args = {}
+        if settings.DATABASE_URL.startswith("sqlite"):
+            connect_args["check_same_thread"] = False
+        _async_engine = create_async_engine(
+            settings.get_database_url(async_driver=True),
+            echo=settings.DATABASE_ECHO,
+            pool_size=settings.DATABASE_POOL_SIZE,
+            max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            connect_args=connect_args,
+        )
+    return _async_engine
 
 
 def get_session() -> Generator[Session, None, None]:
@@ -85,7 +119,7 @@ def get_session() -> Generator[Session, None, None]:
         def get_items(session: Session = Depends(get_session)):
             return session.exec(select(Item)).all()
     """
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         try:
             yield session
             session.commit()
@@ -133,7 +167,7 @@ def session_scope() -> Generator[Session, None, None]:
             session.add(Item(name="Test"))
             # Auto-commits on exit
     """
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         try:
             yield session
             session.commit()
@@ -175,7 +209,7 @@ def init_db() -> None:
 
         init_db()  # Creates tables for all models
     """
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(get_engine())
 
 
 async def init_async_db() -> None:
@@ -195,7 +229,7 @@ def drop_db() -> None:
 
     WARNING: This will delete all data! Use only in development/testing.
     """
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(get_engine())
 
 
 async def drop_async_db() -> None:
