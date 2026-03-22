@@ -1,0 +1,189 @@
+{% extends "admin/dashboard.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block body %}
+<div class="flex h-screen bg-gray-100" x-data="{ sidebarOpen: true }">
+    <!-- Sidebar -->
+    <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 transform transition-transform duration-300 lg:translate-x-0" :class="{ '-translate-x-full': !sidebarOpen }">
+        <div class="flex h-16 items-center justify-between px-4 bg-gray-800">
+            <a href="/admin/" class="text-xl font-bold text-white">
+                {{ settings.ADMIN_SITE_HEADER }}
+            </a>
+            <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <nav class="mt-4 px-2">
+            {% for item in menu_items %}
+            <a href="{{ item.url }}"
+               class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg mb-1
+                      {% if request.url.path.startswith(item.url) and item.url != '/admin/' %}bg-gray-800 text-white{% endif %}
+                      {% if request.url.path == item.url %}bg-gray-800 text-white{% endif %}">
+                <i class="fas fa-{{ item.icon }} w-5 mr-3"></i>
+                {{ item.name }}
+            </a>
+            {% endfor %}
+        </nav>
+
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
+                    <i class="fas fa-user text-gray-300"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-white">{{ user.display_name }}</p>
+                    <a href="/auth/logout" class="text-xs text-gray-400 hover:text-white">Logout</a>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 lg:ml-64">
+        <header class="bg-white shadow-sm h-16 flex items-center justify-between px-4">
+            <div class="flex items-center">
+                <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden text-gray-500 hover:text-gray-700 mr-4">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <nav class="flex" aria-label="Breadcrumb">
+                    <ol class="flex items-center space-x-2">
+                        <li>
+                            <a href="/admin/" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-home"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <span class="text-gray-400">/</span>
+                        </li>
+                        <li>
+                            <a href="../" class="text-gray-500 hover:text-gray-700">{{ model_admin.name_plural }}</a>
+                        </li>
+                        <li>
+                            <span class="text-gray-400">/</span>
+                        </li>
+                        <li>
+                            <span class="text-gray-900 font-medium">
+                                {% if is_create %}
+                                    Add {{ model_admin.name }}
+                                {% else %}
+                                    Edit {{ model_admin.name }}
+                                {% endif %}
+                            </span>
+                        </li>
+                    </ol>
+                </nav>
+            </div>
+            <a href="../" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-arrow-left mr-1"></i> Back to list
+            </a>
+        </header>
+
+        <main class="p-6">
+            <div class="max-w-3xl mx-auto">
+                <!-- Form -->
+                <form method="post"
+                      {% if is_create %}action="create/"{% else %}action="./"{% endif %}
+                      class="bg-white rounded-lg shadow p-6"
+                      hx-post="{% if is_create %}create/{% else %}./{% endif %}"
+                      hx-target="#form-result">
+                    <div class="space-y-6">
+                        {% for column in columns %}
+                        {% if column.editable and column.name not in ['created_at', 'updated_at'] %}
+                        <div>
+                            <label for="{{ column.name }}" class="block text-sm font-medium text-gray-700 mb-1">
+                                {{ column.name|replace("_", " ")|title }}
+                                {% if column.required %}
+                                <span class="text-red-500">*</span>
+                                {% endif %}
+                            </label>
+
+                            {% if column.type == 'text' %}
+                            <input type="text"
+                                   id="{{ column.name }}"
+                                   name="{{ column.name }}"
+                                   {% if instance %}value="{{ getattr(instance, column.name, '') }}"{% endif %}
+                                   {% if column.required %}required{% endif %}
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+
+                            {% elif column.type == 'number' %}
+                            <input type="number"
+                                   id="{{ column.name }}"
+                                   name="{{ column.name }}"
+                                   {% if instance %}value="{{ getattr(instance, column.name, '') }}"{% endif %}
+                                   {% if column.required %}required{% endif %}
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+
+                            {% elif column.type == 'checkbox' %}
+                            <div class="flex items-center">
+                                <input type="checkbox"
+                                       id="{{ column.name }}"
+                                       name="{{ column.name }}"
+                                       {% if instance and getattr(instance, column.name, False) %}checked{% endif %}
+                                       class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                <label for="{{ column.name }}" class="ml-2 text-sm text-gray-700">
+                                    Yes
+                                </label>
+                            </div>
+
+                            {% elif column.type == 'textarea' %}
+                            <textarea id="{{ column.name }}"
+                                      name="{{ column.name }}"
+                                      rows="4"
+                                      {% if column.required %}required{% endif %}
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">{% if instance %}{{ getattr(instance, column.name, '') }}{% endif %}</textarea>
+
+                            {% else %}
+                            <input type="text"
+                                   id="{{ column.name }}"
+                                   name="{{ column.name }}"
+                                   {% if instance %}value="{{ getattr(instance, column.name, '') }}"{% endif %}
+                                   {% if column.required %}required{% endif %}
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            {% endif %}
+
+                            {% if column.help_text %}
+                            <p class="mt-1 text-sm text-gray-500">{{ column.help_text }}</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <!-- Form result area -->
+                    <div id="form-result" class="mt-4"></div>
+
+                    <!-- Actions -->
+                    <div class="mt-6 flex items-center justify-between pt-6 border-t border-gray-200">
+                        {% if not is_create and instance %}
+                        <button type="button"
+                                hx-delete="./"
+                                hx-confirm="Are you sure you want to delete this {{ model_admin.name|lower }}?"
+                                class="px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition">
+                            <i class="fas fa-trash mr-1"></i> Delete
+                        </button>
+                        {% else %}
+                        <div></div>
+                        {% endif %}
+
+                        <div class="flex space-x-3">
+                            <a href="../" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                                Cancel
+                            </a>
+                            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                                <i class="fas fa-save mr-1"></i>
+                                {% if is_create %}
+                                    Create {{ model_admin.name }}
+                                {% else %}
+                                    Save Changes
+                                {% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
