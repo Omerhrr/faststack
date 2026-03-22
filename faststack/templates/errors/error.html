@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Error{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="text-center">
+        <div class="mb-8">
+            <i class="fas fa-exclamation-circle text-6xl text-yellow-400"></i>
+        </div>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-4">Something went wrong</h2>
+        <p class="text-gray-600 mb-8">
+            {{ error.detail if error.detail else "An unexpected error occurred." }}
+        </p>
+        
+        <div class="flex justify-center gap-4">
+            <a href="javascript:history.back()" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Go Back
+            </a>
+            <a href="/" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                <i class="fas fa-home mr-2"></i>
+                Go Home
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

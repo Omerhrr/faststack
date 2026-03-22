@@ -59,6 +59,64 @@ class Settings(BaseSettings):
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = "lax"
 
+    # CSRF Settings
+    CSRF_ENABLED: bool = True
+    CSRF_TOKEN_NAME: str = "csrf_token"
+    CSRF_HEADER_NAME: str = "X-CSRF-Token"
+    CSRF_COOKIE_NAME: str = "csrf_token"
+    CSRF_EXPIRY: int = 3600  # 1 hour
+
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_REQUESTS_PER_MINUTE: int = 60
+    RATE_LIMIT_REQUESTS_PER_HOUR: int = 1000
+    RATE_LIMIT_BLOCK_DURATION: int = 300  # 5 minutes
+
+    # Security Headers
+    SECURITY_HEADERS_ENABLED: bool = True
+    HSTS_ENABLED: bool = False
+    CSP_ENABLED: bool = True
+
+    # JWT Settings
+    JWT_SECRET_KEY: str = ""
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_ISSUER: str = "faststack"
+    JWT_AUDIENCE: str = "faststack-users"
+
+    # CORS Settings (must be after JWT settings)
+    CORS_ORIGINS: list[str] = ["http://localhost:8000", "http://localhost:3000"]
+    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_METHODS: list[str] = ["*"]
+    CORS_ALLOW_HEADERS: list[str] = ["*"]
+
+    # Email Settings
+    EMAIL_ENABLED: bool = False
+    EMAIL_HOST: str = "localhost"
+    EMAIL_PORT: int = 25
+    EMAIL_USE_TLS: bool = False
+    EMAIL_USE_SSL: bool = False
+    EMAIL_HOST_USER: str = ""
+    EMAIL_HOST_PASSWORD: str = ""
+    EMAIL_FROM: str = "noreply@example.com"
+    EMAIL_FROM_NAME: str = "FastStack"
+
+    # File Upload Settings
+    UPLOAD_DIR: str = "uploads"
+    UPLOAD_MAX_SIZE: int = 10 * 1024 * 1024  # 10 MB
+    UPLOAD_ALLOWED_EXTENSIONS: list[str] = [
+        "jpg", "jpeg", "png", "gif", "webp",  # Images
+        "pdf", "doc", "docx", "xls", "xlsx",  # Documents
+        "mp3", "mp4", "wav", "avi",  # Media
+    ]
+    UPLOAD_IMAGE_MAX_WIDTH: int = 1920
+    UPLOAD_IMAGE_MAX_HEIGHT: int = 1080
+
+    # Password Reset
+    PASSWORD_RESET_EXPIRE_HOURS: int = 24
+    PASSWORD_RESET_TOKEN_NAME: str = "password_reset_token"
+
     # Admin Settings
     ADMIN_MOUNT_PATH: str = "/admin"
     ADMIN_SITE_HEADER: str = "FastStack Admin"
@@ -135,6 +193,11 @@ class Settings(BaseSettings):
     def static_dir(self) -> Path:
         """Get the static files directory path."""
         return self.base_dir / self.STATIC_DIR
+
+    @property
+    def upload_dir(self) -> Path:
+        """Get the upload directory path."""
+        return self.base_dir / self.UPLOAD_DIR
 
     def get_database_url(self, async_driver: bool = False) -> str:
         """

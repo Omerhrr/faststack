@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
 from faststack.config import settings
 from faststack.database import init_db
@@ -82,16 +83,41 @@ def _add_template_filters(templates: Jinja2Templates) -> None:
             return value
         return value[:length] + end
 
+    def safe_markdown(value):
+        """Render markdown safely (requires markdown package)."""
+        if value is None:
+            return ""
+        try:
+            import markdown
+            return markdown.markdown(value, extensions=['extra', 'codehilite'])
+        except ImportError:
+            return value
+
+    def json_encode(value):
+        """Convert to JSON string."""
+        import json
+        return json.dumps(value)
+
     templates.env.filters["datetime"] = datetime_format
     templates.env.filters["date"] = date_format
     templates.env.filters["time"] = time_format
     templates.env.filters["truncate"] = truncate
+    templates.env.filters["markdown"] = safe_markdown
+    templates.env.filters["tojson"] = json_encode
 
 
 def _add_template_globals(templates: Jinja2Templates) -> None:
     """Add custom Jinja2 globals."""
+    from faststack.middleware.csrf import generate_csrf_token
+
     templates.env.globals["settings"] = settings
     templates.env.globals["debug"] = settings.DEBUG
+
+    def csrf_token():
+        """Generate a CSRF token for forms."""
+        return generate_csrf_token()
+
+    templates.env.globals["csrf_token"] = csrf_token
 
 
 @asynccontextmanager
@@ -102,6 +128,11 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Startup
+    # Create uploads directory if needed
+    upload_dir = Path(settings.UPLOAD_DIR)
+    if not upload_dir.exists():
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
     # Load all apps
     app_loader.load_all_apps()
 
@@ -129,6 +160,10 @@ def create_app(
     title: str | None = None,
     description: str | None = None,
     version: str = "0.1.0",
+    enable_session: bool = True,
+    enable_csrf: bool = True,
+    enable_rate_limit: bool = True,
+    enable_security_headers: bool = True,
     **kwargs: Any,
 ) -> FastAPI:
     """
@@ -141,6 +176,10 @@ def create_app(
         title: Application title (default: from settings)
         description: Application description
         version: Application version
+        enable_session: Enable session middleware
+        enable_csrf: Enable CSRF protection
+        enable_rate_limit: Enable rate limiting
+        enable_security_headers: Enable security headers
         **kwargs: Additional FastAPI configuration options
 
     Returns:
@@ -159,6 +198,44 @@ def create_app(
         lifespan=lifespan,
         **kwargs,
     )
+
+    # Add Session Middleware (must be first for proper session handling)
+    if enable_session:
+        app.add_middleware(
+            SessionMiddleware,
+            secret_key=settings.SECRET_KEY,
+            session_cookie=settings.SESSION_COOKIE_NAME,
+            max_age=settings.SESSION_MAX_AGE,
+            same_site=settings.SESSION_COOKIE_SAMESITE,
+            https_only=settings.SESSION_COOKIE_SECURE,
+        )
+
+    # Add Security Headers Middleware
+    if enable_security_headers and settings.SECURITY_HEADERS_ENABLED:
+        from faststack.middleware.security import SecurityHeadersMiddleware
+        app.add_middleware(SecurityHeadersMiddleware, enable_hsts=settings.HSTS_ENABLED)
+
+    # Add Rate Limiting Middleware
+    if enable_rate_limit and settings.RATE_LIMIT_ENABLED:
+        from faststack.middleware.ratelimit import RateLimitMiddleware
+        app.add_middleware(
+            RateLimitMiddleware,
+            requests_per_minute=settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
+            requests_per_hour=settings.RATE_LIMIT_REQUESTS_PER_HOUR,
+            block_duration=settings.RATE_LIMIT_BLOCK_DURATION,
+        )
+
+    # Add CSRF Middleware
+    if enable_csrf and settings.CSRF_ENABLED:
+        from faststack.middleware.csrf import CSRFMiddleware
+        app.add_middleware(
+            CSRFMiddleware,
+            secret_key=settings.SECRET_KEY,
+            token_name=settings.CSRF_TOKEN_NAME,
+            header_name=settings.CSRF_HEADER_NAME,
+            cookie_name=settings.CSRF_COOKIE_NAME,
+            expiry=settings.CSRF_EXPIRY,
+        )
 
     # Add CORS middleware
     app.add_middleware(
@@ -194,7 +271,95 @@ def create_app(
         """Health check endpoint."""
         return {"status": "healthy", "app": settings.APP_NAME}
 
+    # Add error handlers
+    _add_error_handlers(app)
+
     return app
+
+
+def _add_error_handlers(app: FastAPI) -> None:
+    """Add custom error handlers for common HTTP errors."""
+
+    from fastapi import HTTPException
+    from fastapi.exceptions import RequestValidationError
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        """Handle HTTP exceptions with custom error pages."""
+        templates = get_templates()
+
+        # Check if it's an HTMX request
+        if request.headers.get("HX-Request"):
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">{exc.detail}</div>',
+                status_code=exc.status_code,
+            )
+
+        # Return custom error page based on status code
+        if exc.status_code == 404:
+            return templates.TemplateResponse(
+                "errors/404.html",
+                {"request": request, "error": exc},
+                status_code=404,
+            )
+        elif exc.status_code == 403:
+            return templates.TemplateResponse(
+                "errors/403.html",
+                {"request": request, "error": exc},
+                status_code=403,
+            )
+        elif exc.status_code >= 500:
+            return templates.TemplateResponse(
+                "errors/500.html",
+                {"request": request, "error": exc},
+                status_code=exc.status_code,
+            )
+
+        # Default error response
+        return templates.TemplateResponse(
+            "errors/error.html",
+            {"request": request, "error": exc},
+            status_code=exc.status_code,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        """Handle validation errors."""
+        templates = get_templates()
+
+        if request.headers.get("HX-Request"):
+            errors = "; ".join([str(e) for e in exc.errors()])
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">Validation error: {errors}</div>',
+                status_code=422,
+            )
+
+        return templates.TemplateResponse(
+            "errors/400.html",
+            {"request": request, "errors": exc.errors()},
+            status_code=422,
+        )
+
+    @app.exception_handler(Exception)
+    async def generic_exception_handler(request: Request, exc: Exception):
+        """Handle unexpected exceptions."""
+        templates = get_templates()
+
+        if settings.DEBUG:
+            # Show error details in debug mode
+            import traceback
+            tb = traceback.format_exc()
+            return templates.TemplateResponse(
+                "errors/debug.html",
+                {"request": request, "error": exc, "traceback": tb},
+                status_code=500,
+            )
+
+        return templates.TemplateResponse(
+            "errors/500.html",
+            {"request": request, "error": exc},
+            status_code=500,
+        )
 
 
 # Global app instance (lazy-loaded)

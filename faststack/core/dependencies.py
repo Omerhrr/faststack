@@ -8,20 +8,35 @@ from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlmodel import Session
+from sqlmodel import Session, select
 
-from faststack.database import get_session
-from faststack.auth.models import User
+from faststack.database import get_engine
+from faststack.config import settings
 
 
 # Security schemes
 http_basic = HTTPBasic(auto_error=False)
 
 
-async def get_current_user(
+# Database session dependency
+def get_session() -> Session:
+    """Get a database session."""
+    engine = get_engine()
+    with Session(engine) as session:
+        try:
+            yield session
+        finally:
+            session.close()
+
+
+# Type alias for database session
+DBSession = Annotated[Session, Depends(get_session)]
+
+
+def get_current_user(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
-) -> User:
+    session: DBSession,
+) -> Any:
     """
     Get the currently authenticated user.
 
@@ -31,6 +46,8 @@ async def get_current_user(
     Returns:
         User: The authenticated user
     """
+    from faststack.auth.models import User
+
     # Check session-based auth first
     user_id = request.session.get("user_id")
     if user_id:
@@ -39,18 +56,35 @@ async def get_current_user(
             return user
 
     # Fall back to basic auth (for API access)
-    credentials = await http_basic(request)
-    if credentials:
-        from faststack.auth.utils import verify_password
+    credentials = request.headers.get("Authorization")
+    if credentials and credentials.startswith("Bearer "):
+        # JWT token auth
+        token = credentials.replace("Bearer ", "")
+        from faststack.auth.jwt import get_jwt_manager
+        try:
+            jwt_manager = get_jwt_manager()
+            token_data = jwt_manager.validate_token(token)
+            user = session.get(User, int(token_data.sub))
+            if user:
+                return user
+        except Exception:
+            pass
 
-        user = session.exec(
-            User.__table__.select().where(
-                User.email == credentials.username
-            )
-        ).first()
-
-        if user and verify_password(credentials.password, user.password_hash):
-            return user
+    # Basic auth
+    import base64
+    auth = request.headers.get("Authorization")
+    if auth and auth.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(auth.replace("Basic ", "")).decode()
+            email, password = decoded.split(":", 1)
+            
+            from faststack.auth.utils import verify_password
+            user = session.exec(select(User).where(User.email == email)).first()
+            
+            if user and verify_password(password, user.password_hash):
+                return user
+        except Exception:
+            pass
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,25 +93,27 @@ async def get_current_user(
     )
 
 
-async def get_optional_user(
+def get_optional_user(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
-) -> User | None:
+    session: DBSession,
+) -> Any:
     """
     Get the current user if authenticated, otherwise return None.
 
     Returns:
         User | None: The authenticated user or None
     """
+    from faststack.auth.models import User
+    
     user_id = request.session.get("user_id")
     if user_id:
         return session.get(User, user_id)
     return None
 
 
-async def get_admin_user(
-    user: Annotated[User, Depends(get_current_user)],
-) -> User:
+def get_admin_user(
+    user: Any = Depends(get_current_user),
+) -> Any:
     """
     Get the current user and verify they are an admin.
 
@@ -96,7 +132,6 @@ async def get_admin_user(
 
 
 # Type aliases for dependency injection
-CurrentUser = Annotated[User, Depends(get_current_user)]
-OptionalUser = Annotated[User | None, Depends(get_optional_user)]
-AdminUser = Annotated[User, Depends(get_admin_user)]
-DBSession = Annotated[Session, Depends(get_session)]
+CurrentUser = Annotated[Any, Depends(get_current_user)]
+OptionalUser = Annotated[Any | None, Depends(get_optional_user)]
+AdminUser = Annotated[Any, Depends(get_admin_user)]
