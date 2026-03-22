@@ -83,15 +83,126 @@ def _add_template_filters(templates: Jinja2Templates) -> None:
             return value
         return value[:length] + end
 
-    def safe_markdown(value):
-        """Render markdown safely (requires markdown package)."""
+    def safe_markdown(value, safe_mode=True):
+        """
+        Render markdown safely with HTML sanitization.
+        
+        Args:
+            value: Markdown text to render
+            safe_mode: If True, sanitize HTML output to prevent XSS
+        
+        Returns:
+            Sanitized HTML string
+        """
         if value is None:
             return ""
+        
         try:
             import markdown
-            return markdown.markdown(value, extensions=['extra', 'codehilite'])
+            
+            # Convert markdown to HTML
+            html = markdown.markdown(
+                value,
+                extensions=['extra', 'codehilite', 'tables', 'fenced_code'],
+                extension_configs={
+                    'codehilite': {
+                        'css_class': 'highlight',
+                        'linenums': False,
+                    }
+                }
+            )
+            
+            if not safe_mode:
+                return html
+            
+            # Sanitize HTML to prevent XSS attacks
+            try:
+                import bleach
+                
+                # Allowed tags for markdown output
+                allowed_tags = [
+                    # Structure
+                    'p', 'br', 'hr', 'div', 'span',
+                    # Headings
+                    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    # Text formatting
+                    'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ins',
+                    'sub', 'sup', 'mark', 'small',
+                    # Links
+                    'a',
+                    # Lists
+                    'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+                    # Code
+                    'code', 'pre', 'kbd', 'samp', 'var',
+                    # Quotes
+                    'blockquote', 'cite', 'q',
+                    # Tables
+                    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+                    # Images (with restrictions)
+                    'img',
+                ]
+                
+                # Allowed attributes
+                allowed_attributes = {
+                    '*': ['class', 'id', 'title'],
+                    'a': ['href', 'title', 'rel', 'target'],
+                    'img': ['src', 'alt', 'title', 'width', 'height'],
+                    'code': ['class'],  # For syntax highlighting
+                    'pre': ['class'],
+                    'div': ['class'],
+                    'span': ['class'],
+                    'table': ['class'],
+                    'th': ['colspan', 'rowspan'],
+                    'td': ['colspan', 'rowspan'],
+                }
+                
+                # Allowed protocols for links
+                allowed_protocols = ['http', 'https', 'mailto', 'tel']
+                
+                # Sanitize the HTML
+                clean_html = bleach.clean(
+                    html,
+                    tags=allowed_tags,
+                    attributes=allowed_attributes,
+                    protocols=allowed_protocols,
+                    strip=True,  # Strip disallowed tags instead of escaping
+                )
+                
+                # Clean link attributes for extra security
+                clean_html = bleach.linkify(
+                    clean_html,
+                    callbacks=[
+                        lambda attrs, new: (
+                            attrs.update({'rel': 'noopener noreferrer', 'target': '_blank'})
+                            if attrs.get('href', '').startswith(('http://', 'https://'))
+                            else attrs
+                        ) or attrs
+                    ],
+                    skip_tags=['pre', 'code'],
+                )
+                
+                return clean_html
+                
+            except ImportError:
+                # bleach not available, use basic escaping
+                # Remove potentially dangerous tags manually
+                import re
+                
+                # Remove script tags and content
+                html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+                # Remove event handlers
+                html = re.sub(r'\s*on\w+\s*=\s*["\'][^"\']*["\']', '', html, flags=re.IGNORECASE)
+                # Remove javascript: URLs
+                html = re.sub(r'javascript:', '', html, flags=re.IGNORECASE)
+                # Remove data: URLs (can contain malicious content)
+                html = re.sub(r'data:', '', html, flags=re.IGNORECASE)
+                
+                return html
+                
         except ImportError:
-            return value
+            # markdown package not available, return escaped text
+            from markupsafe import escape
+            return escape(str(value))
 
     def json_encode(value):
         """Convert to JSON string."""

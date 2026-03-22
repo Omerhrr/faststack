@@ -88,9 +88,18 @@
                       class="bg-white rounded-lg shadow p-6"
                       hx-post="{% if is_create %}create/{% else %}./{% endif %}"
                       hx-target="#form-result">
+                    
+                    <!-- CSRF Token -->
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <!-- Version for optimistic locking -->
+                    {% if not is_create and current_version %}
+                    <input type="hidden" name="_version" value="{{ current_version }}">
+                    {% endif %}
+                    
                     <div class="space-y-6">
                         {% for column in columns %}
-                        {% if column.editable and column.name not in ['created_at', 'updated_at'] %}
+                        {% if column.editable and column.name not in ['created_at', 'updated_at', 'version', 'id'] %}
                         <div>
                             <label for="{{ column.name }}" class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ column.name|replace("_", " ")|title }}
