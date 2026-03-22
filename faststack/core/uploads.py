@@ -185,7 +185,14 @@ class FileUploader:
         if not subdirectory:
             return ""
         
-        # Normalize path
+        # Check for absolute paths BEFORE stripping
+        if subdirectory.startswith('/') or ':' in subdirectory:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid subdirectory: absolute paths not allowed",
+            )
+        
+        # Normalize path - strip leading/trailing slashes
         subdirectory = subdirectory.strip('/')
         
         # Check for path traversal attempts
@@ -193,13 +200,6 @@ class FileUploader:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid subdirectory: path traversal not allowed",
-            )
-        
-        # Check for absolute paths
-        if subdirectory.startswith('/') or ':' in subdirectory:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid subdirectory: absolute paths not allowed",
             )
         
         # Check for null bytes

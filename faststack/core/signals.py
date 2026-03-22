@@ -290,6 +290,9 @@ class SignalManager:
                 try:
                     result = receiver.callback(signal)
                     results.append(result)
+                except RecursionDetectedError:
+                    # Re-raise recursion errors
+                    raise
                 except Exception as e:
                     # Log error but continue to other receivers
                     print(f"[SIGNAL ERROR] {signal_type.value} in {receiver.callback.__name__}: {e}")
