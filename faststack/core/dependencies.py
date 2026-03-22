@@ -4,7 +4,7 @@ FastStack Core Dependencies
 Provides dependency injection helpers for authentication, sessions, etc.
 """
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Generator
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -18,9 +18,9 @@ from faststack.config import settings
 http_basic = HTTPBasic(auto_error=False)
 
 
-# Database session dependency
-def get_session() -> Session:
-    """Get a database session."""
+# Database session dependency - must be a generator for FastAPI Depends
+def get_session() -> Generator[Session, None, None]:
+    """Get a database session (generator for FastAPI dependency injection)."""
     engine = get_engine()
     with Session(engine) as session:
         try:

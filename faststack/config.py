@@ -134,12 +134,6 @@ class Settings(BaseSettings):
     APPS_DIR: str = "apps"
     APPS_PREFIX: str = ""
 
-    # CORS Settings
-    CORS_ORIGINS: list[str] = ["http://localhost:8000", "http://localhost:3000"]
-    CORS_ALLOW_CREDENTIALS: bool = True
-    CORS_ALLOW_METHODS: list[str] = ["*"]
-    CORS_ALLOW_HEADERS: list[str] = ["*"]
-
     # Security Settings
     PASSWORD_MIN_LENGTH: int = 8
     PASSWORD_REQUIRE_UPPERCASE: bool = True

@@ -27,8 +27,6 @@ class User(SQLModel, TimestampMixin, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(
-        unique=True,
-        index=True,
         sa_column=Column(String(255), unique=True, index=True),
         description="User email address",
     )

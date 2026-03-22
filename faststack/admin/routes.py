@@ -40,7 +40,7 @@ async def admin_dashboard(request: Request, user: AdminUser):
 
     # Get stats
     stats = {}
-    for key, model_admin in admin_registry.get_all_models():
+    for key, model_admin in admin_registry.get_all_models().items():
         # This would need a session, simplified for now
         stats[model_admin.name_plural] = 0
 

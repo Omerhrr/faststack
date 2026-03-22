@@ -107,17 +107,25 @@ def get_async_engine() -> SQLAlchemyAsyncEngine:
     return _async_engine
 
 
+@contextmanager
 def get_session() -> Generator[Session, None, None]:
     """
     Dependency injection for synchronous database sessions.
+
+    Can be used both as a FastAPI dependency and as a context manager.
 
     Yields:
         Session: SQLModel session
 
     Example:
+        # As a FastAPI dependency
         @app.get("/items")
         def get_items(session: Session = Depends(get_session)):
             return session.exec(select(Item)).all()
+
+        # As a context manager
+        with get_session() as session:
+            session.add(Item(name="Test"))
     """
     with Session(get_engine()) as session:
         try:
@@ -126,8 +134,6 @@ def get_session() -> Generator[Session, None, None]:
         except Exception:
             session.rollback()
             raise
-        finally:
-            session.close()
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
