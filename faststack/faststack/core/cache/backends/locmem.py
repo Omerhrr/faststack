@@ -10,7 +10,7 @@ from threading import RLock
 from typing import Any
 import fnmatch
 
-from faststack.core.cache.base import BaseCache
+from faststack.faststack.core.cache.base import BaseCache
 
 
 class LocMemCache(BaseCache):

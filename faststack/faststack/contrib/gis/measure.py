@@ -227,7 +227,7 @@ class Distance:
 
     @classmethod
     def from_inches(cls, inches: float) -> 'Distance':
-        return cls(in=inches)
+        return cls(inch=inches)
 
     @classmethod
     def from_nautical_miles(cls, nm: float) -> 'Distance':

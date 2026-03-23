@@ -1,5 +1,5 @@
 """Generic Views"""
-from faststack.views.base import View
+from faststack.faststack.views.base import View, TemplateView, RedirectView
 
 
 class ListView(View):

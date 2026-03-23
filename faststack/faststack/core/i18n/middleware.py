@@ -11,7 +11,7 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from faststack.core.i18n.translation import (
+from faststack.faststack.core.i18n.translation import (
     activate,
     deactivate,
     get_language,

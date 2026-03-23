@@ -3,13 +3,11 @@ ContentType model for generic relations.
 """
 
 from typing import Any, Dict, Optional, Type, TypeVar
-from dataclasses import dataclass, field
 import hashlib
 
 T = TypeVar('T')
 
 
-@dataclass
 class ContentType:
     """
     Represents a model type in the system.
@@ -23,13 +21,19 @@ class ContentType:
         model: Model class name
     """
 
-    id: int
-    app_label: str
-    model: str
+    # Class-level cache for content types
+    _cache: Dict[str, 'ContentType'] = {}
+    _id_cache: Dict[int, 'ContentType'] = {}
 
-    # Cache for content types
-    _cache: Dict[str, 'ContentType'] = field(default_factory=dict, repr=False)
-    _id_cache: Dict[int, 'ContentType'] = field(default_factory=dict, repr=False)
+    def __init__(
+        self,
+        id: int,
+        app_label: str,
+        model: str
+    ):
+        self.id = id
+        self._app_label = app_label
+        self.model = model
 
     def __repr__(self) -> str:
         return f"ContentType(id={self.id}, app_label='{self.app_label}', model='{self.model}')"

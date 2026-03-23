@@ -30,7 +30,7 @@ Example:
     activate('de')  # Switch to German
 """
 
-from faststack.core.i18n.translation import (
+from faststack.faststack.core.i18n.translation import (
     gettext,
     ngettext,
     pgettext,
@@ -41,8 +41,8 @@ from faststack.core.i18n.translation import (
     get_language_info,
     LANGUAGE_SESSION_KEY,
 )
-from faststack.core.i18n.middleware import LocaleMiddleware
-from faststack.core.i18n.utils import (
+from faststack.faststack.core.i18n.middleware import LocaleMiddleware
+from faststack.faststack.core.i18n.utils import (
     get_supported_language_variant,
     check_for_language,
 )

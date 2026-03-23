@@ -6,25 +6,17 @@ Includes brute force protection and account lockout.
 """
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from collections import defaultdict
 import asyncio
 import time
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlmodel import Session, select
 
 from faststack.auth.models import User, UserCreate
 from faststack.config import settings
-
-
-# Password hashing context
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12,
-)
 
 
 # In-memory store for failed attempts (use Redis in production)
@@ -35,7 +27,7 @@ _failed_attempts_lock = asyncio.Lock()
 
 def hash_password(password: str) -> str:
     """
-    Hash a plain text password.
+    Hash a plain text password using bcrypt.
 
     Args:
         password: Plain text password
@@ -43,7 +35,11 @@ def hash_password(password: str) -> str:
     Returns:
         Hashed password string
     """
-    return pwd_context.hash(password)
+    # Truncate password to 72 bytes (bcrypt limitation)
+    password_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -57,7 +53,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    # Truncate password to 72 bytes (bcrypt limitation)
+    password_bytes = plain_password.encode('utf-8')[:72]
+    hashed_bytes = hashed_password.encode('utf-8')
+    try:
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception:
+        return False
 
 
 def create_user(
@@ -138,7 +140,7 @@ def authenticate_user(
         return None
 
     # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     session.add(user)
     session.commit()
 

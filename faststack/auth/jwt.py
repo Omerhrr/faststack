@@ -74,6 +74,7 @@ class JWTManager:
         subject: str,
         expires_delta: timedelta | None = None,
         additional_claims: dict[str, Any] | None = None,
+        **kwargs,
     ) -> str:
         """
         Create a new access token.
@@ -82,6 +83,7 @@ class JWTManager:
             subject: Token subject (usually user ID)
             expires_delta: Custom expiry time
             additional_claims: Additional claims to include
+            **kwargs: Additional claims as keyword arguments
 
         Returns:
             Encoded JWT token
@@ -103,6 +105,10 @@ class JWTManager:
 
         if additional_claims:
             to_encode.update(additional_claims)
+        
+        # Add any extra kwargs as claims
+        if kwargs:
+            to_encode.update(kwargs)
 
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 

@@ -29,7 +29,7 @@ class Point:
             x = float(match.group(1))
             y = float(match.group(2))
             z = float(match.group(3)) if match.group(3) else None
-            return cls(x, x, z)
+            return cls(x, y, z)
         raise ValueError(f"Invalid WKT: {wkt}")
 
     def to_wkt(self) -> str:

@@ -8,7 +8,7 @@ import time
 import json
 from typing import Any
 
-from faststack.core.cache.base import BaseCache
+from faststack.faststack.core.cache.base import BaseCache
 
 
 class DatabaseCache(BaseCache):

@@ -2,7 +2,7 @@
 Cache Backend Package
 """
 
-from faststack.core.cache.backends.locmem import LocMemCache
+from faststack.faststack.core.cache.backends.locmem import LocMemCache
 
 __all__ = [
     "LocMemCache",
@@ -10,14 +10,14 @@ __all__ = [
 
 # Conditionally import Redis if available
 try:
-    from faststack.core.cache.backends.redis import RedisCache
+    from faststack.faststack.core.cache.backends.redis import RedisCache
     __all__.append("RedisCache")
 except ImportError:
     RedisCache = None  # type: ignore
 
 # Conditionally import Database cache
 try:
-    from faststack.core.cache.backends.database import DatabaseCache
+    from faststack.faststack.core.cache.backends.database import DatabaseCache
     __all__.append("DatabaseCache")
 except ImportError:
     DatabaseCache = None  # type: ignore

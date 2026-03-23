@@ -20,7 +20,7 @@ Example:
     {% endfor %}
 """
 
-from .api import success, error, warning, info, debug
+from .api import success, error, warning, info, debug, messages, add_message, get_messages, clear_messages
 from .storage import MessageStorage, CookieStorage, SessionStorage
 from .constants import (
     DEBUG, INFO, SUCCESS, WARNING, ERROR,
@@ -31,6 +31,7 @@ from .middleware import MessageMiddleware
 __all__ = [
     # API functions
     'success', 'error', 'warning', 'info', 'debug',
+    'messages', 'add_message', 'get_messages', 'clear_messages',
     # Storage
     'MessageStorage', 'CookieStorage', 'SessionStorage',
     # Constants

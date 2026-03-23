@@ -139,6 +139,11 @@ class Page(Generic[T]):
         return self._object_list
 
     @property
+    def items(self) -> Sequence[T]:
+        """Alias for object_list for convenience."""
+        return self._object_list
+
+    @property
     def number(self) -> int:
         """Get the 1-based page number."""
         return self._number
@@ -350,6 +355,16 @@ class Paginator(Generic[T]):
         if self._count is None:
             self._count = self._get_count()
         return self._count
+
+    @property
+    def total_items(self) -> int:
+        """Alias for count for backward compatibility."""
+        return self.count
+
+    @property
+    def total_pages(self) -> int:
+        """Alias for num_pages for backward compatibility."""
+        return self.num_pages
 
     async def acount(self) -> int:
         """

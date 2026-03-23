@@ -5,7 +5,7 @@ Defines the interface that all cache backends must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 
 class BaseCache(ABC):
@@ -229,7 +229,7 @@ class BaseCache(ABC):
     def get_or_set(
         self,
         key: str,
-        default: Any | callable,
+        default: Any | Callable,
         timeout: int | None = None,
         version: int | None = None,
     ) -> Any:

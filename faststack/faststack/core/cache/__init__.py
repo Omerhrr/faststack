@@ -29,10 +29,10 @@ Example:
         return {"data": "..."}
 """
 
-from faststack.core.cache.base import BaseCache
-from faststack.core.cache.backends.locmem import LocMemCache
-from faststack.core.cache.decorators import cache_page, cache_control
-from faststack.core.cache.utils import get_cache, make_key
+from faststack.faststack.core.cache.base import BaseCache
+from faststack.faststack.core.cache.backends.locmem import LocMemCache
+from faststack.faststack.core.cache.decorators import cache_page, cache_control
+from faststack.faststack.core.cache.utils import get_cache, make_key
 
 # Default cache instance
 _cache: BaseCache | None = None

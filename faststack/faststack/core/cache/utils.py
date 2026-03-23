@@ -7,8 +7,8 @@ Helper functions for cache configuration and key generation.
 from typing import Any
 from hashlib import md5
 
-from faststack.core.cache.base import BaseCache
-from faststack.core.cache.backends.locmem import LocMemCache
+from faststack.faststack.core.cache.base import BaseCache
+from faststack.faststack.core.cache.backends.locmem import LocMemCache
 
 
 def get_cache(config: dict[str, Any]) -> BaseCache:

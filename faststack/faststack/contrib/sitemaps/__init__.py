@@ -439,13 +439,8 @@ class RobotsTxt:
         return [Rule(allow='/')]
 
 
-@dataclass
 class Rule:
     """Robot rule."""
-    allow: str = None
-    disallow: str = None
-    user_agent: str = '*'
-    crawl_delay: float = None
 
     def __init__(
         self,
@@ -466,6 +461,3 @@ class Rule:
     def add_disallow(self, path: str):
         """Add disallowed path."""
         self.disallows.append(path)
-
-
-from dataclasses import dataclass

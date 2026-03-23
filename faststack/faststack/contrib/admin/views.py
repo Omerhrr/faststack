@@ -10,6 +10,92 @@ from ...core.pagination import Paginator, EmptyPage, PageNotAnInteger
 from ...core.messages import messages
 
 
+class AdminSite:
+    """
+    Admin site that hosts multiple ModelAdmin instances.
+    
+    Provides the main admin interface with navigation, dashboard,
+    and authentication.
+    """
+    
+    name = "admin"
+    
+    def __init__(self, name: str = "admin"):
+        self.name = name
+        self._registry: Dict[Type, 'ModelAdmin'] = {}
+    
+    def register(self, model: Type, admin_class: Type['ModelAdmin'] = None):
+        """Register a model with the admin site."""
+        if admin_class is None:
+            admin_class = ModelAdmin
+        self._registry[model] = admin_class(model, self)
+    
+    def unregister(self, model: Type):
+        """Unregister a model from the admin site."""
+        if model in self._registry:
+            del self._registry[model]
+    
+    def get_urls(self) -> List:
+        """Get all URLs for the admin site."""
+        return []
+    
+    def get_models(self) -> Dict[Type, 'ModelAdmin']:
+        """Get all registered models."""
+        return self._registry
+
+
+class ModelAdmin:
+    """
+    Admin configuration for a single model.
+    """
+    
+    list_display = ['__str__']
+    list_filter = []
+    search_fields = []
+    readonly_fields = []
+    fields = None
+    fieldsets = None
+    list_per_page = 100
+    list_max_show_all = 200
+    list_editable = []
+    save_as = False
+    save_on_top = False
+    
+    def __init__(self, model: Type, admin_site: AdminSite):
+        self.model = model
+        self.admin_site = admin_site
+    
+    def has_view_permission(self, request: Request, obj: Any = None) -> bool:
+        return True
+    
+    def has_add_permission(self, request: Request) -> bool:
+        return True
+    
+    def has_change_permission(self, request: Request, obj: Any = None) -> bool:
+        return True
+    
+    def has_delete_permission(self, request: Request, obj: Any = None) -> bool:
+        return True
+    
+    async def aget_queryset(self, request: Request) -> Any:
+        return []
+    
+    def get_list_display(self, request: Request) -> List[str]:
+        return self.list_display
+    
+    def get_list_filter(self, request: Request) -> List[str]:
+        return self.list_filter
+    
+    def get_search_results(self, request: Request, queryset: Any, search_term: str):
+        return queryset, False
+    
+    def get_ordering(self, request: Request) -> List[str]:
+        return []
+    
+    def get_actions(self, request: Request) -> Dict:
+        return {}
+
+
 class AdminView:
     """
     Base admin view.
