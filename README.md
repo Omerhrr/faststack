@@ -26,8 +26,10 @@ FastStack combines the developer experience of Django with the performance and m
 # Install uv if you haven't
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# Install FastStack
+uv tool install faststack-framework
+
 # Create a new project
-uv tool install faststack
 faststack startproject myproject
 cd myproject
 uv sync
@@ -37,11 +39,18 @@ uv run faststack runserver
 ### Using pip
 
 ```bash
-pip install faststack
+pip install faststack-framework
 faststack startproject myproject
 cd myproject
 pip install -e .
 faststack runserver
+```
+
+### Using pipx
+
+```bash
+pipx install faststack-framework
+faststack startproject myproject
 ```
 
 ## 🏃 Quick Start

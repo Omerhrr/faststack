@@ -1,27 +1,45 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "faststack"
+name = "faststack-framework"
 version = "0.1.0"
-description = "Async-first Python framework built on FastAPI with integrated templating, ORM, admin, and CLI using uv"
+description = "Async-first Python framework built on FastAPI with integrated templating, ORM, admin, and CLI"
 readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.12"
+license = "MIT"
+requires-python = ">=3.11"
 authors = [
     {name = "FastStack Team", email = "hello@faststack.dev"}
+]
+maintainers = [
+    {name = "Omer Harr", email = "omer@faststack.dev"}
+]
+keywords = [
+    "fastapi",
+    "async",
+    "web",
+    "framework",
+    "django-alternative",
+    "htmx",
+    "orm",
+    "admin",
+    "jinja2",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Framework :: FastAPI",
     "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
     "fastapi>=0.115.0",
@@ -41,6 +59,7 @@ dependencies = [
     "httpx>=0.28.0",
     "email-validator>=2.1.0",
     "python-jose[cryptography]>=3.3.0",
+    "starlette>=0.41.0",
 ]
 
 [project.optional-dependencies]
@@ -48,22 +67,43 @@ dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
-    "httpx>=0.28.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+]
+redis = [
+    "redis>=5.0.0",
+]
+postgres = [
+    "asyncpg>=0.30.0",
+]
+mysql = [
+    "aiomysql>=0.2.0",
+]
+markdown = [
+    "markdown>=3.7",
+    "bleach>=6.2",
 ]
 
 [project.scripts]
 faststack = "faststack.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/faststack/faststack"
-Documentation = "https://faststack.dev/docs"
-Repository = "https://github.com/faststack/faststack"
-Issues = "https://github.com/faststack/faststack/issues"
+Homepage = "https://github.com/Omerhrr/faststack"
+Documentation = "https://github.com/Omerhrr/faststack#readme"
+Repository = "https://github.com/Omerhrr/faststack"
+Issues = "https://github.com/Omerhrr/faststack/issues"
+Changelog = "https://github.com/Omerhrr/faststack/releases"
 
 [tool.setuptools.packages.find]
+where = ["."]
 include = ["faststack*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+faststack = ["templates/**/*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "*.pyo", "__pycache__", "*.db", "*.sqlite"]
 
 [tool.ruff]
 line-length = 100

@@ -122,3 +122,9 @@ dmypy.json
 skills/
 download/
 upload/
+fastui/
+worklog.md
+manage.py
+
+# Test database
+test_*.db
