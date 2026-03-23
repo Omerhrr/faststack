@@ -15,6 +15,7 @@ FastStack combines the developer experience of Django with the performance and m
 - **📝 Jinja2 Templates** - Server-side rendering with template inheritance
 - **⚡ HTMX Ready** - Build dynamic UIs without complex JavaScript
 - **🎨 Tailwind CSS** - Beautiful, responsive designs out of the box
+- **🧩 FastUI Integration** - Optional bundled frontend (Alpine.js, ECharts, Flowbite)
 - **🛠️ Powerful CLI** - Create projects, apps, run migrations with ease
 
 ## 📦 Installation
@@ -258,6 +259,82 @@ DATABASE_URL=sqlite:///./app.db
 # Server
 HOST=127.0.0.1
 PORT=8000
+
+# Frontend (see below)
+FRONTEND_MODE=fastui
+```
+
+## 🎨 Frontend Configuration
+
+FastStack supports two frontend modes:
+
+### FastUI Mode (Default)
+
+Single CDN bundle with everything included:
+
+```bash
+FRONTEND_MODE=fastui
+```
+
+Includes:
+- **Tailwind CSS** - Utility-first CSS
+- **HTMX 2.0** - AJAX without JavaScript
+- **Alpine.js 3.x** - Lightweight reactivity
+- **ECharts 6.x** - Beautiful charts
+- **Flowbite 4.x** - UI components
+
+**Custom Alpine.js Directives:**
+- `x-chart` - Declarative ECharts integration
+- `x-lazy` - Lazy loading with IntersectionObserver
+- `x-flow` - Flowbite component helpers
+
+```html
+<!-- Chart example -->
+<div x-chart='{
+    "title": { "text": "Sales Data" },
+    "xAxis": { "type": "category", "data": ["Mon", "Tue", "Wed"] },
+    "yAxis": { "type": "value" },
+    "series": [{ "type": "bar", "data": [120, 200, 150] }]
+}' style="height: 300px;"></div>
+```
+
+### Default Mode (Individual Libraries)
+
+Load libraries separately for more control:
+
+```bash
+FRONTEND_MODE=default
+```
+
+Configure individual CDNs:
+```bash
+HTMX_CDN_URL=https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js
+ALPINE_CDN_URL=https://cdn.jsdelivr.net/npm/alpinejs@3.15.8/dist/cdn.min.js
+ECHARTS_CDN_URL=https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js
+TAILWIND_CDN_URL=https://cdn.tailwindcss.com
+```
+
+Feature toggles:
+```bash
+FRONTEND_ENABLE_ECHARTS=true
+FRONTEND_ENABLE_FLOWBITE=true
+```
+
+### Template Access
+
+Access frontend settings in any template:
+
+```html
+<div class="badge {% if frontend.mode == 'fastui' %}bg-indigo-100{% else %}bg-green-100{% endif %}">
+    {{ frontend.mode|upper }} Mode
+</div>
+
+{% if frontend.mode == 'fastui' %}
+    <div x-chart='{ ... }'></div>
+{% else %}
+    <div id="chart"></div>
+    <script>echarts.init(document.getElementById('chart')).setOption({...});</script>
+{% endif %}
 ```
 
 ## 🧪 Testing
@@ -273,10 +350,13 @@ pytest --cov=faststack
 ## 📚 Documentation
 
 - [FastStack Documentation](https://faststack.dev/docs)
+- [FastUI Documentation](https://github.com/Omerhrr/fastui)
 - [FastAPI Documentation](https://fastapi.tiangolo.com)
 - [SQLModel Documentation](https://sqlmodel.tiangolo.com)
 - [Tailwind CSS](https://tailwindcss.com)
 - [HTMX](https://htmx.org)
+- [Alpine.js](https://alpinejs.dev)
+- [ECharts](https://echarts.apache.org)
 
 ## 🤝 Contributing
 
