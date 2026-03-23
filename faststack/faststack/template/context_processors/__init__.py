@@ -299,6 +299,21 @@ def site(request: Any) -> Dict[str, Any]:
     return {'site': site_obj}
 
 
+def frontend(request: Any) -> Dict[str, Any]:
+    """
+    Add frontend configuration to template context.
+
+    Returns:
+        {'frontend': {...}, 'use_fastui': True/False}
+    """
+    from ...config import settings
+
+    return {
+        'frontend': settings.frontend_settings,
+        'use_fastui': settings.use_fastui,
+    }
+
+
 class PermissionWrapper:
     """
     Wrapper for permission checking in templates.
@@ -369,4 +384,5 @@ BUILTIN_CONTEXT_PROCESSORS = [
     static,
     csrf,
     messages,
+    frontend,
 ]

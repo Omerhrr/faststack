@@ -165,6 +165,25 @@ class Settings(BaseSettings):
     PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
 
+    # Frontend Settings
+    # Options: "fastui" (single CDN bundle) or "default" (individual libraries)
+    FRONTEND_MODE: str = "fastui"
+
+    # FastUI CDN URL (when FRONTEND_MODE = "fastui")
+    FASTUI_CDN_URL: str = "https://cdn.jsdelivr.net/npm/fastt-ui@0.1.8/dist/fast-ui.min.js"
+
+    # Individual library versions (when FRONTEND_MODE = "default")
+    HTMX_CDN_URL: str = "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
+    ALPINE_CDN_URL: str = "https://cdn.jsdelivr.net/npm/alpinejs@3.15.8/dist/cdn.min.js"
+    ECHARTS_CDN_URL: str = "https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js"
+    TAILWIND_CDN_URL: str = "https://cdn.tailwindcss.com"
+    FLOWBITE_CSS_URL: str = "https://cdn.jsdelivr.net/npm/flowbite@4.0.1/dist/flowbite.min.css"
+    FLOWBITE_JS_URL: str = "https://cdn.jsdelivr.net/npm/flowbite@4.0.1/dist/flowbite.min.js"
+
+    # Optional: Enable/disable specific features
+    FRONTEND_ENABLE_ECHARTS: bool = True
+    FRONTEND_ENABLE_FLOWBITE: bool = True
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""
@@ -179,6 +198,27 @@ class Settings(BaseSettings):
     def is_testing(self) -> bool:
         """Check if running in testing mode."""
         return self.APP_ENV == "testing"
+
+    @property
+    def use_fastui(self) -> bool:
+        """Check if using FastUI bundled mode."""
+        return self.FRONTEND_MODE == "fastui"
+
+    @property
+    def frontend_settings(self) -> dict:
+        """Get frontend configuration as a dict for template context."""
+        return {
+            "mode": self.FRONTEND_MODE,
+            "fastui_cdn": self.FASTUI_CDN_URL,
+            "htmx_cdn": self.HTMX_CDN_URL,
+            "alpine_cdn": self.ALPINE_CDN_URL,
+            "echarts_cdn": self.ECHARTS_CDN_URL,
+            "tailwind_cdn": self.TAILWIND_CDN_URL,
+            "flowbite_css": self.FLOWBITE_CSS_URL,
+            "flowbite_js": self.FLOWBITE_JS_URL,
+            "enable_echarts": self.FRONTEND_ENABLE_ECHARTS,
+            "enable_flowbite": self.FRONTEND_ENABLE_FLOWBITE,
+        }
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":

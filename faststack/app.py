@@ -223,6 +223,8 @@ def _add_template_globals(templates: Jinja2Templates) -> None:
 
     templates.env.globals["settings"] = settings
     templates.env.globals["debug"] = settings.DEBUG
+    templates.env.globals["frontend"] = settings.frontend_settings
+    templates.env.globals["use_fastui"] = settings.use_fastui
 
     def csrf_token():
         """Generate a CSRF token for forms."""

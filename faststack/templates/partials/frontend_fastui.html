@@ -1,0 +1,27 @@
+{#
+    FastUI Frontend Bundle - Single CDN Load
+    Includes: Tailwind CSS, Alpine.js, HTMX, ECharts, Flowbite
+    Custom directives: x-chart, x-flow, x-lazy, x-init-fragment
+#}
+
+<!-- FastUI Bundle - All-in-one CDN -->
+<script src="{{ frontend.fastui_cdn }}"></script>
+
+<style>
+    /* ECharts container minimum height */
+    [x-chart] {
+        min-height: 200px;
+    }
+
+    /* Flowbite modal backdrop fix */
+    .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+</style>
+
+<script>
+    // FastUI ready event listener
+    window.addEventListener('fastui:ready', function(e) {
+        console.log('FastUI v' + e.detail.version + ' loaded');
+    });
+</script>
