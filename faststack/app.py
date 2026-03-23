@@ -247,12 +247,16 @@ async def lifespan(app: FastAPI):
     # Import and register built-in routes
     from faststack.auth import routes as auth_routes
     from faststack.admin import routes as admin_routes
+    from faststack.demo_routes import router as demo_router
     
     # Register auth routes with web router
     router_manager.web_router.include_router(auth_routes.router)
     
     # Register admin routes with admin router
     router_manager.admin_router.include_router(admin_routes.router)
+    
+    # Register demo routes
+    router_manager.web_router.include_router(demo_router)
 
     # Load all apps
     app_loader.load_all_apps()

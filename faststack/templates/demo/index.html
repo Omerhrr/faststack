@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastUI Demo - {{ settings.APP_NAME }}</title>
+
+    <!-- FastUI - Includes Tailwind, Alpine.js, HTMX, ECharts, Flowbite -->
+    <script src="https://cdn.jsdelivr.net/npm/fastt-ui@0.1.8/dist/fast-ui.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body class="h-full">
+    <div class="min-h-full">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="flex h-16 justify-between">
+                    <div class="flex">
+                        <div class="flex flex-shrink-0 items-center">
+                            <a href="/" class="text-xl font-bold text-indigo-600">{{ settings.APP_NAME }}</a>
+                        </div>
+                        <div class="hidden sm:-my-px sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/" class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">Home</a>
+                            <a href="/demo" class="inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-900">FastUI Demo</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main>
+            <div class="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+                
+                <!-- Header -->
+                <div class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900">FastUI + FastStack Demo</h1>
+                    <p class="mt-2 text-gray-600">Showcasing Server-Driven Interactivity with FastStack backend</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    <!-- 1. HTMX Content Loading -->
+                    <section class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-bolt text-yellow-500"></i>
+                            HTMX Dynamic Loading
+                        </h2>
+                        <div x-data>
+                            <div class="flex gap-2 mb-4">
+                                <button 
+                                    hx-get="/demo/api/users"
+                                    hx-target="#htmx-content"
+                                    class="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition">
+                                    Load Users
+                                </button>
+                                <button 
+                                    hx-get="/demo/api/stats"
+                                    hx-target="#htmx-content"
+                                    class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                                    Load Stats
+                                </button>
+                                <button 
+                                    hx-get="/demo/api/notifications"
+                                    hx-target="#htmx-content"
+                                    class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition">
+                                    <i class="fas fa-bell"></i> Alerts
+                                </button>
+                            </div>
+                            <div id="htmx-content" class="p-4 bg-gray-50 rounded min-h-[150px]">
+                                <p class="text-gray-500">Click a button to load content from FastStack...</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 2. Alpine.js Counter -->
+                    <section class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-mountain text-blue-500"></i>
+                            Alpine.js Reactivity
+                        </h2>
+                        <div x-data="{ count: 0 }">
+                            <div class="flex items-center gap-4 mb-4">
+                                <button @click="count++" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                <span class="text-2xl font-bold" x-text="count"></span>
+                                <button @click="count--" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <button @click="count = 0" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                                    Reset
+                                </button>
+                            </div>
+                            <div class="flex gap-2">
+                                <button @click="count += 10" class="px-3 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300">+10</button>
+                                <button @click="count *= 2" class="px-3 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300">×2</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 3. Charts (ECharts) -->
+                    <section class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-chart-bar text-green-500"></i>
+                            ECharts Integration
+                        </h2>
+                        <div 
+                            x-chart='{
+                                "title": { "text": "API Response Times", "left": "center", "textStyle": { "fontSize": 14 } },
+                                "tooltip": { "trigger": "axis" },
+                                "xAxis": { "type": "category", "data": ["/users", "/posts", "/api/data", "/auth", "/admin"] },
+                                "yAxis": { "type": "value", "name": "ms" },
+                                "series": [{ "type": "bar", "data": [45, 120, 89, 32, 156], "itemStyle": { "color": "#6366f1" } }]
+                            }'
+                            style="height: 250px;">
+                        </div>
+                    </section>
+
+                    <!-- 4. Global Store -->
+                    <section class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-database text-purple-500"></i>
+                            Global Store
+                        </h2>
+                        <div x-data="{ value: window.FastUI?.store?.get('demo-value') || 0 }">
+                            <p class="text-gray-600 mb-2">Cross-component state:</p>
+                            <div class="flex items-center gap-4">
+                                <button 
+                                    @click="value++; window.FastUI?.store?.set('demo-value', value)"
+                                    class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                                    Increment
+                                </button>
+                                <span class="text-xl font-bold" x-text="value"></span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 5. Real-time Updates -->
+                    <section class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-sync text-cyan-500"></i>
+                            Auto-Refresh
+                        </h2>
+                        <div x-data="{ time: 'Loading...' }" x-init="
+                            setInterval(() => {
+                                fetch('/demo/api/time').then(r => r.text()).then(t => time = t);
+                            }, 1000);
+                            fetch('/demo/api/time').then(r => r.text()).then(t => time = t);
+                        ">
+                            <p class="text-gray-600 mb-2">Server time:</p>
+                            <div class="p-4 bg-gray-900 text-green-400 font-mono rounded text-center text-xl" x-text="time"></div>
+                        </div>
+                    </section>
+
+                    <!-- 6. Form with HTMX -->
+                    <section class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-paper-plane text-pink-500"></i>
+                            Form Submission (HTMX)
+                        </h2>
+                        <form hx-post="/demo/api/submit" hx-target="#form-result" x-data="{ name: '' }">
+                            <input 
+                                type="text" 
+                                name="message" 
+                                x-model="name"
+                                placeholder="Type a message..."
+                                class="w-full px-3 py-2 border rounded mb-2"
+                            >
+                            <button type="submit" class="px-4 py-2 bg-pink-500 text-white rounded hover:bg-pink-600">
+                                Submit
+                            </button>
+                        </form>
+                        <div id="form-result" class="mt-4"></div>
+                    </section>
+
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        window.addEventListener('fastui:ready', (e) => {
+            console.log('✅ FastUI v' + e.detail.version + ' ready');
+        });
+    </script>
+</body>
+</html>
