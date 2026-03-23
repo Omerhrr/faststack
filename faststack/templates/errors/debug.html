@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Error{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="text-center">
+        <div class="mb-8">
+            <i class="fas fa-bug text-6xl text-red-400"></i>
+        </div>
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Debug Error</h1>
+        
+        {% if settings.DEBUG %}
+        <p class="text-gray-600 mb-8">An error occurred while processing your request.</p>
+        
+        <div class="bg-red-50 border border-red-200 rounded-lg p-6 max-w-3xl mx-auto text-left">
+            <div class="mb-4">
+                <h3 class="font-semibold text-red-800 mb-2">Error:</h3>
+                <pre class="text-sm text-red-700 bg-white p-3 rounded overflow-auto">{{ error | e }}</pre>
+            </div>
+            
+            {% if traceback %}
+            <div>
+                <h3 class="font-semibold text-red-800 mb-2">Traceback:</h3>
+                <pre class="text-xs text-red-700 bg-white p-3 rounded overflow-auto max-h-96">{{ traceback | e }}</pre>
+            </div>
+            {% endif %}
+            
+            {% if request %}
+            <div class="mt-4 pt-4 border-t border-red-200">
+                <h3 class="font-semibold text-red-800 mb-2">Request Info:</h3>
+                <p class="text-sm text-red-700">URL: {{ request.url }}</p>
+                <p class="text-sm text-red-700">Method: {{ request.method }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        {# Production mode - hide sensitive details #}
+        <p class="text-gray-600 mb-8">An unexpected error occurred. Please try again later.</p>
+        
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 max-w-md mx-auto">
+            <p class="text-gray-600">If this problem persists, please contact support.</p>
+            {% if error_id %}
+            <p class="text-sm text-gray-500 mt-4">Error ID: {{ error_id }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <div class="mt-8">
+            <a href="/" class="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                <i class="fas fa-home mr-2"></i>
+                Go Home
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
