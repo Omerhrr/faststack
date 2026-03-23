@@ -67,3 +67,31 @@ Stage Summary:
 - Full TypeScript support
 - Comprehensive documentation
 - Committed and pushed to FastStack repo (commit 957a4f8)
+
+---
+Task ID: 3
+Agent: main
+Task: Integrate FastUI with FastStack
+
+Work Log:
+- Updated `/faststack/templates/base.html` to use FastUI CDN (single script tag)
+- Created `/faststack/templates/demo/index.html` - comprehensive FastUI demo page
+- Created `/faststack/demo_routes.py` - API endpoints for HTMX fragment loading:
+  - GET /demo - Demo page
+  - GET /demo/api/users - User list HTML fragment
+  - GET /demo/api/stats - Statistics HTML fragment
+  - GET /demo/api/notifications - Alerts HTML fragment
+  - GET /demo/api/time - Server time for real-time updates
+  - POST /demo/api/submit - Form submission handler
+- Updated `/faststack/templates/pages/home.html`:
+  - Added "FastUI Demo" button
+  - Added FastUI feature card
+  - Added Quick Link to demo page
+- Updated `/faststack/app.py` to register demo routes
+
+Stage Summary:
+- FastUI fully integrated with FastStack
+- Demo page showcases: HTMX loading, Alpine.js reactivity, ECharts, Global Store, Forms
+- Single `<script>` tag replaces multiple CDN includes
+- Server-driven HTML fragments for HTMX
+- Committed and pushed (commit d1d4ca7)
