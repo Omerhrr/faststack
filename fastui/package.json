@@ -1,0 +1,56 @@
+{
+  "name": "fast-ui",
+  "version": "0.1.0",
+  "description": "A high-performance, single-file CDN library for Server-Driven Interactivity (SDI) with FastStack, HTMX, Alpine.js, ECharts, Flowbite, and Tailwind CSS",
+  "main": "dist/fast-ui.min.js",
+  "module": "dist/fast-ui.es.js",
+  "unpkg": "dist/fast-ui.min.js",
+  "jsdelivr": "dist/fast-ui.min.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "vite build",
+    "build:prod": "vite build --mode production",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .ts,.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "htmx",
+    "alpinejs",
+    "echarts",
+    "flowbite",
+    "tailwindcss",
+    "fastapi",
+    "faststack",
+    "server-driven-ui",
+    "sdi"
+  ],
+  "author": "Omerhrr",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Omerhrr/fastui"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vite-plugin-css-injected-by-js": "^3.3.0",
+    "terser": "^5.27.0",
+    "vitest": "^1.2.0"
+  },
+  "peerDependencies": {
+    "alpinejs": "^3.13.0",
+    "htmx.org": "^1.9.0"
+  },
+  "optionalDependencies": {
+    "echarts": "^5.4.0",
+    "flowbite": "^2.2.0"
+  }
+}
